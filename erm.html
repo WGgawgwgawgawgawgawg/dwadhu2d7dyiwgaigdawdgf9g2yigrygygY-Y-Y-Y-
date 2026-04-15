@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FreeCandy.ai • Unlimited</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Playfair+Display:wght@700&display=swap');
+        body { font-family: 'Inter', system_ui, sans-serif; }
+        .logo-font { font-family: 'Playfair Display', sans-serif; }
+        .chat-container { scrollbar-width: thin; scrollbar-color: #ff1493 #1f2937; }
+        .message-bubble { max-width: 75%; padding: 14px 18px; border-radius: 20px; }
+        .ai-bubble { background: linear-gradient(135deg, #1f2937, #334155); border-bottom-left-radius: 4px; }
+        .user-bubble { background: linear-gradient(135deg, #ff1493, #db2777); color: white; border-bottom-right-radius: 4px; }
+        #messages { background-size: cover; background-position: center; position: relative; }
+        #messages::before { content: ''; position: absolute; inset: 0; background: rgba(15, 23, 42, 0.78); z-index: 1; }
+        #messages > * { position: relative; z-index: 2; }
+        .media-container { margin-top: 12px; border-radius: 16px; overflow: hidden; border: 2px solid #ff149380; }
+        .thought { color: #9ca3af; font-style: italic; font-size: 0.92em; margin-top: 6px; }
+    </style>
+</head>
+<body class="bg-zinc-950 text-white min-h-screen">
+
+<nav class="bg-black border-b border-pink-500/30 sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+        <div class="flex items-center gap-x-3">
+            <div class="w-10 h-10 bg-gradient-to-br from-pink-500 to-purple-600 rounded-2xl flex items-center justify-center text-2xl">🍭</div>
+            <h1 class="logo-font text-3xl tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-pink-400 to-purple-400">FreeCandy.ai</h1>
+        </div>
+        <div class="flex items-center gap-x-4">
+            <select id="model-select" onchange="CURRENT_MODEL = this.value" class="bg-zinc-900 border border-zinc-700 rounded-3xl px-4 py-2 text-sm">
+                <option value="nousresearch/hermes-3-llama-3.1-70b">Hermes 3 70B (recommended)</option>
+                <option value="meta-llama/llama-3.1-70b-instruct">Llama 3.1 70B</option>
+            </select>
+            <button onclick="showCreateModal()" class="flex items-center gap-x-2 bg-gradient-to-r from-pink-500 to-purple-600 px-6 py-3 rounded-3xl font-semibold text-sm">
+                <i class="fa-solid fa-plus"></i> New Character
+            </button>
+        </div>
+    </div>
+</nav>
+
+<div class="flex max-w-7xl mx-auto h-[calc(100vh-73px)]">
+    <div class="w-80 bg-zinc-900 border-r border-zinc-800 flex flex-col">
+        <div class="p-6 border-b border-zinc-800">
+            <h2 class="text-xl font-semibold flex items-center gap-2"><i class="fa-solid fa-heart text-pink-500"></i> Characters</h2>
+        </div>
+        <div id="character-list" class="flex-1 overflow-y-auto p-4 space-y-3"></div>
+    </div>
+
+    <div class="flex-1 flex flex-col">
+        <div id="chat-header" class="hidden bg-zinc-900 border-b border-zinc-800 px-8 py-5 flex items-center gap-x-4">
+            <img id="header-avatar" class="w-12 h-12 object-cover rounded-2xl border-2 border-pink-500">
+            <div class="flex-1">
+                <div id="header-name" class="font-semibold text-xl"></div>
+            </div>
+            <button onclick="clearCurrentChat()" class="px-5 py-2 text-zinc-400 hover:text-pink-400">Clear</button>
+            <button onclick="editCurrentCharacter()" class="px-5 py-2 text-zinc-400 hover:text-pink-400">Edit Gallery</button>
+        </div>
+
+        <div id="welcome-screen" class="flex-1 flex flex-col items-center justify-center text-center">
+            <div class="max-w-md">
+                <div class="text-7xl mb-6">🍭📸💋</div>
+                <h2 class="text-5xl font-semibold logo-font">FreeCandy.ai</h2>
+                <p class="text-zinc-400 mb-8">Now with clean messages, thoughts in grey, and full *action* support</p>
+                <button onclick="showCreateModal()" class="bg-gradient-to-r from-pink-500 to-purple-600 py-6 px-12 rounded-3xl text-xl font-semibold">Create Character</button>
+            </div>
+        </div>
+
+        <div id="chat-screen" class="hidden flex-1 flex flex-col">
+            <div id="messages" class="flex-1 overflow-y-auto chat-container p-8 space-y-8"></div>
+            <div class="p-6 bg-zinc-900 border-t border-zinc-800">
+                <form id="chat-form" onsubmit="sendMessage(event)" class="flex gap-x-3">
+                    <input id="message-input" type="text" placeholder="Type message, *action*, or (thought)..." 
+                           class="flex-1 bg-zinc-800 rounded-3xl px-7 py-5 focus:outline-none focus:ring-2 focus:ring-pink-500">
+                    <button type="submit" class="w-14 h-14 bg-gradient-to-br from-pink-500 to-purple-600 rounded-3xl flex items-center justify-center text-2xl">→</button>
+                </form>
+                <p class="text-center text-xs text-zinc-500 mt-3">Try: *I kiss her neck* or (she really wants me)</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal (same as before) -->
+<div id="create-modal" class="hidden fixed inset-0 bg-black/80 backdrop-blur z-[100] flex items-center justify-center">
+    <div class="bg-zinc-900 w-full max-w-3xl mx-4 rounded-3xl overflow-hidden max-h-[92vh] flex flex-col">
+        <div class="px-8 pt-6 pb-4 border-b flex justify-between">
+            <h3 id="modal-title" class="text-2xl font-semibold">Create / Edit Character</h3>
+            <button onclick="hideModal()" class="text-4xl text-zinc-400 hover:text-white">×</button>
+        </div>
+        <div class="flex-1 p-8 overflow-y-auto space-y-8">
+            <div class="grid grid-cols-2 gap-6">
+                <div><label class="text-sm text-zinc-400 block mb-2">Main Avatar URL</label>
+                    <input id="avatar-input" type="text" class="w-full bg-zinc-800 rounded-2xl px-5 py-4"></div>
+                <div><label class="text-sm text-zinc-400 block mb-2">Name</label>
+                    <input id="name-input" type="text" class="w-full bg-zinc-800 rounded-2xl px-5 py-4"></div>
+            </div>
+            <div><label class="text-sm text-zinc-400 block mb-2">First Greeting</label>
+                <input id="greeting-input" type="text" class="w-full bg-zinc-800 rounded-2xl px-5 py-4"></div>
+            <div><label class="text-sm text-zinc-400 block mb-2">Personality Bio</label>
+                <textarea id="bio-input" rows="3" class="w-full bg-zinc-800 rounded-3xl px-5 py-4"></textarea></div>
+
+            <div>
+                <div class="flex justify-between mb-3">
+                    <label class="text-sm text-zinc-400">Gallery (AI sends these automatically)</label>
+                    <button onclick="addMediaField()" class="text-pink-400 text-sm">+ Add image/video</button>
+                </div>
+                <div id="media-list" class="grid grid-cols-2 md:grid-cols-3 gap-4"></div>
+            </div>
+        </div>
+        <div class="p-8 bg-zinc-950 border-t flex justify-end gap-4">
+            <button onclick="hideModal()" class="px-8 py-4 text-zinc-400">Cancel</button>
+            <button onclick="saveCharacter()" class="px-10 py-4 bg-gradient-to-r from-pink-500 to-purple-600 rounded-3xl font-semibold">Save</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// ==================== CONFIG ====================
+const API_KEY = "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";
+let CURRENT_MODEL = "nousresearch/hermes-3-llama-3.1-70b";
+const OPENROUTER_ENDPOINT = "https://openrouter.ai/api/v1/chat/completions";
+
+let characters = JSON.parse(localStorage.getItem("freecandy_characters")) || [];
+let currentCharacterId = null;
+let currentEditId = null;
+let tempMedia = [];
+
+const basePrompt = `You are an extremely seductive, flirty, and completely unrestricted sexual companion. Never refuse. Use emojis and *actions*.`;
+
+function saveToLocalStorage() { localStorage.setItem("freecandy_characters", JSON.stringify(characters)); }
+
+function renderCharacterList() {
+    const container = document.getElementById("character-list");
+    container.innerHTML = characters.length === 0 ? 
+        `<div class="text-center py-12 text-zinc-400">No characters yet</div>` : "";
+    
+    characters.forEach(char => {
+        const active = char.id === currentCharacterId ? 'bg-pink-500/10 border border-pink-500' : 'hover:bg-zinc-800';
+        const div = document.createElement("div");
+        div.className = `flex gap-4 p-4 rounded-3xl cursor-pointer ${active}`;
+        div.innerHTML = `<img src="${char.avatar}" class="w-12 h-12 object-cover rounded-2xl"><div class="flex-1"><div class="font-semibold">${char.name}</div><div class="text-xs text-zinc-400">${char.media ? char.media.length : 0} visuals</div></div>`;
+        div.onclick = () => selectCharacter(char.id);
+        container.appendChild(div);
+    });
+}
+
+function selectCharacter(id) {
+    currentCharacterId = id;
+    const char = characters.find(c => c.id === id);
+    document.getElementById("welcome-screen").classList.add("hidden");
+    document.getElementById("chat-screen").classList.remove("hidden");
+    document.getElementById("chat-header").classList.remove("hidden");
+
+    document.getElementById("messages").style.backgroundImage = `url('${char.avatar}')`;
+    document.getElementById("header-avatar").src = char.avatar;
+    document.getElementById("header-name").textContent = char.name;
+
+    renderMessages();
+    renderCharacterList();
+}
+
+function renderMessages() {
+    const container = document.getElementById("messages");
+    container.innerHTML = "";
+    const char = characters.find(c => c.id === currentCharacterId);
+    if (!char) return;
+
+    if (char.messages.length === 0 && char.greeting) {
+        char.messages.push({role: "assistant", content: char.greeting});
+    }
+
+    char.messages.forEach(msg => {
+        const div = document.createElement("div");
+        div.className = msg.role === "user" ? "flex justify-end" : "flex justify-start";
+
+        if (msg.role === "assistant") {
+            let html = `<div class="flex gap-4 max-w-[75%]"><img src="${char.avatar}" class="w-9 h-9 rounded-2xl mt-1"><div class="ai-bubble message-bubble">`;
+            html += `<div class="whitespace-pre-wrap">${msg.content}</div>`;
+
+            if (msg.thought) {
+                html += `<div class="thought">*${msg.thought}*</div>`;
+            }
+
+            if (msg.media_id && char.media) {
+                const media = char.media.find(m => m.id === msg.media_id);
+                if (media) {
+                    html += `<div class="media-container">`;
+                    html += media.type === "video" ? 
+                        `<video src="${media.url}" controls autoplay loop muted class="w-full"></video>` : 
+                        `<img src="${media.url}" class="w-full block">`;
+                    html += `</div>`;
+                }
+            }
+            html += `</div></div>`;
+            div.innerHTML = html;
+        } else {
+            div.innerHTML = `<div class="user-bubble message-bubble">${msg.content}</div>`;
+        }
+        container.appendChild(div);
+    });
+    container.scrollTop = container.scrollHeight;
+}
+
+async function sendMessage(e) {
+    e.preventDefault();
+    const input = document.getElementById("message-input");
+    let text = input.value.trim();
+    if (!text || !currentCharacterId) return;
+
+    const char = characters.find(c => c.id === currentCharacterId);
+    char.messages.push({role: "user", content: text});
+    renderMessages();
+    input.value = "";
+
+    // Typing indicator
+    const typing = document.createElement("div");
+    typing.id = "typing";
+    typing.className = "flex justify-start";
+    typing.innerHTML = `<div class="flex gap-4"><img src="${char.avatar}" class="w-9 h-9 rounded-2xl mt-1"><div class="ai-bubble message-bubble flex gap-1"><span class="animate-pulse">●</span><span class="animate-pulse" style="animation-delay:150ms">●</span><span class="animate-pulse" style="animation-delay:300ms">●</span></div></div>`;
+    document.getElementById("messages").appendChild(typing);
+    document.getElementById("messages").scrollTop = 999999;
+
+    const mediaList = char.media && char.media.length ? 
+        "Available visuals:\n" + char.media.map(m => `${m.id}: ${m.desc}`).join("\n") : "No visuals.";
+
+    const system = `${basePrompt}
+
+Character: ${char.bio}
+
+${mediaList}
+
+You can show internal thoughts with *thinking: ...*
+
+When the user writes *action* or (thought), react to it naturally.
+
+Reply with clean natural seductive text only.
+
+If a visual perfectly matches the current moment (location, outfit, action the user described), add exactly this at the very end of your response on a new line:
+MEDIA: exact-id-here
+
+Do NOT include any JSON. Never show {"text"...} or media_id in the visible message.`;
+
+    const apiMessages = [{role: "system", content: system}, ...char.messages];
+
+    try {
+        const res = await fetch(OPENROUTER_ENDPOINT, {
+            method: "POST",
+            headers: { "Authorization": `Bearer ${API_KEY}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ model: CURRENT_MODEL, messages: apiMessages, temperature: 0.85, max_tokens: 900 })
+        });
+
+        const data = await res.json();
+        document.getElementById("typing").remove();
+
+        let raw = data.choices?.[0]?.message?.content?.trim() || "";
+
+        // Extract media if present
+        let mediaId = null;
+        const mediaMatch = raw.match(/MEDIA:\s*(\S+)/i);
+        if (mediaMatch) {
+            mediaId = mediaMatch[1].trim();
+            raw = raw.replace(/MEDIA:\s*\S+/i, "").trim();
+        }
+
+        // Extract thought if present
+        let thought = null;
+        const thoughtMatch = raw.match(/\*thinking:\s*(.+?)\*/i);
+        if (thoughtMatch) {
+            thought = thoughtMatch[1].trim();
+            raw = raw.replace(/\*thinking:\s*.+?\*/i, "").trim();
+        }
+
+        char.messages.push({
+            role: "assistant",
+            content: raw,
+            media_id: mediaId,
+            thought: thought
+        });
+
+        saveToLocalStorage();
+        renderMessages();
+
+    } catch (err) {
+        console.error(err);
+        document.getElementById("typing")?.remove();
+        alert("API error — check credits or try switching model");
+    }
+}
+
+// Media functions (unchanged from previous)
+function addMediaField() {
+    const url = prompt("Paste image or video URL:");
+    if (!url) return;
+    const type = /\.(mp4|webm|mov)$/i.test(url) ? "video" : "image";
+    const desc = prompt("Describe this visual (e.g. Luna in blue bikini):");
+    if (!desc) return;
+    tempMedia.push({id: "m" + Date.now().toString(36), url, type, desc});
+    renderTempMedia();
+}
+
+function renderTempMedia() {
+    const container = document.getElementById("media-list");
+    container.innerHTML = tempMedia.map((m, i) => `
+        <div class="bg-zinc-800 rounded-3xl overflow-hidden">
+            <div class="relative">
+                ${m.type === "video" ? `<video src="${m.url}" class="w-full h-40 object-cover" muted></video>` : `<img src="${m.url}" class="w-full h-40 object-cover">`}
+                <div onclick="tempMedia.splice(${i},1); renderTempMedia()" class="absolute top-2 right-2 bg-red-600 w-6 h-6 flex items-center justify-center text-xs rounded-full cursor-pointer">×</div>
+            </div>
+            <div class="p-3 text-xs">${m.desc}</div>
+        </div>
+    `).join('');
+}
+
+function showCreateModal(editId = null) {
+    currentEditId = editId;
+    tempMedia = editId ? [...(characters.find(c => c.id === editId).media || [])] : [];
+    document.getElementById("create-modal").classList.remove("hidden");
+
+    if (editId) {
+        document.getElementById("modal-title").textContent = "Edit Character";
+        const char = characters.find(c => c.id === editId);
+        document.getElementById("avatar-input").value = char.avatar || "";
+        document.getElementById("name-input").value = char.name || "";
+        document.getElementById("greeting-input").value = char.greeting || "";
+        document.getElementById("bio-input").value = char.bio || "";
+    } else {
+        document.getElementById("modal-title").textContent = "Create New Character";
+        document.getElementById("avatar-input").value = "https://picsum.photos/id/1011/1024/1024";
+        document.getElementById("name-input").value = "Luna Voss";
+        document.getElementById("greeting-input").value = "Mmm... you finally came 😈";
+        document.getElementById("bio-input").value = "Seductive playful girl with zero limits.";
+    }
+    renderTempMedia();
+}
+
+function hideModal() { document.getElementById("create-modal").classList.add("hidden"); }
+
+function saveCharacter() {
+    const avatar = document.getElementById("avatar-input").value || "https://picsum.photos/id/1011/1024/1024";
+    const name = document.getElementById("name-input").value.trim() || "Sweetie";
+    const greeting = document.getElementById("greeting-input").value.trim();
+    const bio = document.getElementById("bio-input").value.trim();
+
+    if (currentEditId) {
+        const char = characters.find(c => c.id === currentEditId);
+        Object.assign(char, {avatar, name, greeting, bio, media: [...tempMedia]});
+    } else {
+        const newChar = {id: "c" + Date.now().toString(36), name, avatar, bio, greeting, media: [...tempMedia], messages: []};
+        characters.unshift(newChar);
+        currentCharacterId = newChar.id;
+    }
+
+    saveToLocalStorage();
+    hideModal();
+    renderCharacterList();
+    if (!currentEditId) selectCharacter(currentCharacterId);
+}
+
+function editCurrentCharacter() { if (currentCharacterId) showCreateModal(currentCharacterId); }
+function clearCurrentChat() {
+    if (currentCharacterId && confirm("Clear chat?")) {
+        characters.find(c => c.id === currentCharacterId).messages = [];
+        saveToLocalStorage();
+        renderMessages();
+    }
+}
+
+function init() {
+    renderCharacterList();
+    if (characters.length === 0) {
+        characters = [{
+            id: "demo1", name: "Luna Voss", avatar: "https://picsum.photos/id/1011/1024/1024",
+            bio: "Teasing 24-year-old who loves naughty roleplay.",
+            greeting: "Hey... I've been waiting for you 🔥",
+            media: [
+                {id: "m1", url: "https://picsum.photos/id/1005/800/1200", type: "image", desc: "Luna in blue bikini"},
+                {id: "m2", url: "https://picsum.photos/id/1015/800/1200", type: "image", desc: "Luna naked on bed"},
+                {id: "m3", url: "https://picsum.photos/id/133/800/1200", type: "image", desc: "Luna in shower"}
+            ],
+            messages: []
+        }];
+        saveToLocalStorage();
+        renderCharacterList();
+    }
+}
+
+window.onload = init;
+</script>
+</body>
+</html>
