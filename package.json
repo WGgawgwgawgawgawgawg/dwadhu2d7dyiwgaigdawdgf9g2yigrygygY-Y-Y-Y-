@@ -1,0 +1,8 @@
+{
+  "name": "freecandy-static",
+  "version": "1.0.0",
+  "description": "Static HTML site",
+  "scripts": {
+    "start": "echo 'Static site - no server needed'"
+  }
+}
